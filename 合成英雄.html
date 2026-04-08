@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四色英雄大冒险</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+       
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 20px;
+        }
+       
+        .container {
+            max-width: 680px;
+            width: 100%;
+            padding: 20px;
+        }
+       
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+       
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #3498db, #2ecc71, #e74c3c, #f39c12);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+       
+        .subtitle {
+            font-size: 1.2rem;
+            color: #bdc3c7;
+        }
+
+        /* 游戏规则区域 - 居中优化 */
+        .instructions {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 22px 28px;
+            border-radius: 16px;
+            margin-bottom: 35px;
+            border-left: 5px solid #3498db;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+       
+        .instructions h3 {
+            margin-bottom: 14px;
+            color: #3498db;
+            font-size: 1.35rem;
+        }
+       
+        .instructions p {
+            line-height: 1.65;
+            margin-bottom: 10px;
+            color: #bdc3c7;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+       
+        .score-container, .time-container, .heroes-container {
+            text-align: center;
+        }
+       
+        .score-title, .time-title, .heroes-title {
+            font-size: 1rem;
+            color: #7f8c8d;
+            margin-bottom: 6px;
+        }
+       
+        .score, .time {
+            font-size: 2.3rem;
+            font-weight: bold;
+        }
+       
+        .heroes-count {
+            font-size: 2.3rem;
+            font-weight: bold;
+            color: #f1c40f;
+        }
+
+        /* 棋盘 - 精确居中 + 对齐 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 12px;
+            background-color: #0f1629;
+            padding: 12px;
+            border-radius: 18px;
+            margin: 0 auto 30px;
+            width: 460px;
+            height: 460px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+       
+        .cell {
+            width: 100%;
+            height: 100%;
+            min-height: 105px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.9rem;
+            color: #ecf0f1;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        /* 数字颜色渐变 */
+        .tile-2   { background-color: #2c3e50; }
+        .tile-4   { background-color: #34495e; }
+        .tile-8   { background-color: #1f5a6e; }
+        .tile-16  { background-color: #1a7a9c; }
+        .tile-32  { background-color: #2a8ab8; }
+        .tile-64  { background-color: #3498db; }
+        .tile-128 { background-color: #9b59b6; }
+       
+        /* 256英雄 - 只显示图片，不显示名称 */
+        .tile-256 {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            box-shadow: inset 0 3px 12px rgba(0,0,0,0.6);
+        }
+
+        .hero-steam   { background-image: url('hero-steam.png'); }
+        .hero-fruit   { background-image: url('hero-fruit.png'); }
+        .hero-sprout  { background-image: url('hero-sprout.png'); }
+        .hero-captain { background-image: url('hero-captain.png'); }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 10px;
+        }
+       
+        button {
+            padding: 13px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.08rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+       
+        .new-game-btn { background: linear-gradient(to right, #3498db, #2980b9); color: white; }
+        .restart-btn  { background: linear-gradient(to right, #e74c3c, #c0392b); color: white; }
+
+        button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 18px;
+            z-index: 20;
+        }
+       
+        .game-over h2 {
+            font-size: 2.7rem;
+            margin-bottom: 12px;
+            color: #f1c40f;
+        }
+
+        /* 底部英雄卡片 */
+        .heroes {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+       
+        .hero-card {
+            width: 138px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px 10px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+       
+        .hero-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.14);
+        }
+       
+        .hero-icon {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 12px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 50%;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+        }
+       
+        .hero-name {
+            font-size: 1.12rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+       
+        .hero-desc {
+            font-size: 0.88rem;
+            color: #bdc3c7;
+        }
+
+        .icon-steam, .icon-fruit, .icon-sprout, .icon-captain {
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .icon-steam   { background-image: url('hero-steam.png'); }
+        .icon-fruit   { background-image: url('hero-fruit.png'); }
+        .icon-sprout  { background-image: url('hero-sprout.png'); }
+        .icon-captain { background-image: url('hero-captain.png'); }
+
+        @media (max-width: 600px) {
+            .grid {
+                width: 340px;
+                height: 340px;
+                grid-gap: 9px;
+                padding: 9px;
+            }
+            .cell { min-height: 78px; font-size: 1.45rem; }
+            h1 { font-size: 2.3rem; }
+            .hero-card { width: 118px; }
+            .hero-icon { width: 72px; height: 72px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>四色英雄大冒险</h1>
+            <p class="subtitle">合成四个英雄256方块即可获胜，时间越短得分越高！</p>
+        </header>
+       
+        <div class="instructions">
+            <h3>游戏规则</h3>
+            <p>1. 使用 <strong>方向键</strong> 或 <strong>WASD</strong> 移动方块</p>
+            <p>2. 相同数字碰撞会合并成下一个数字</p>
+            <p>3. 合成到 256 时会变成对应英雄</p>
+            <p>4. 收集全部四个英雄即可胜利</p>
+            <p>5. 时间越短 + 分数越高，最终成绩越好</p>
+        </div>
+       
+        <div class="game-info">
+            <div class="score-container">
+                <div class="score-title">分数</div>
+                <div class="score">0</div>
+            </div>
+            <div class="time-container">
+                <div class="time-title">用时</div>
+                <div class="time">00:00</div>
+            </div>
+            <div class="heroes-container">
+                <div class="heroes-title">已收集英雄</div>
+                <div class="heroes-count">0/4</div>
+                <div class="heroes-list" id="heroes-list"></div>
+            </div>
+        </div>
+       
+        <div class="game-container">
+            <div class="grid" id="grid">
+                <div class="game-over" id="game-over">
+                    <h2 id="game-title">恭喜获胜！</h2>
+                    <p id="game-message">你成功收集了所有四个英雄！</p>
+                    <p>用时: <span id="final-time">00:00</span></p>
+                    <p>分数: <span id="final-score">0</span></p>
+                    <button class="continue-btn" id="continue-btn">继续游戏</button>
+                </div>
+            </div>
+           
+            <div class="controls">
+                <button class="new-game-btn" id="new-game-btn">新游戏</button>
+                <button class="restart-btn" id="restart-btn">重新开始</button>
+            </div>
+        </div>
+       
+        <div class="heroes">
+            <div class="hero-card">
+                <div class="hero-icon icon-steam"></div>
+                <div class="hero-name">蒸汽博士</div>
+                <div class="hero-desc">256方块</div>
+            </div>
+            <div class="hero-card">
+                <div class="hero-icon icon-fruit"></div>
+                <div class="hero-name">果美美</div>
+                <div class="hero-desc">256方块</div>
+            </div>
+            <div class="hero-card">
+                <div class="hero-icon icon-sprout"></div>
+                <div class="hero-name">绿芽仔</div>
+                <div class="hero-desc">256方块</div>
+            </div>
+            <div class="hero-card">
+                <div class="hero-icon icon-captain"></div>
+                <div class="hero-name">浪浪船长</div>
+                <div class="hero-desc">256方块</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 游戏脚本（核心逻辑不变） ====================
+        let grid = [];
+        let score = 0;
+        let gameOver = false;
+        let gameWon = false;
+        let startTime = null;
+        let timerInterval = null;
+        let elapsedTime = 0;
+        let heroCount = 0;
+
+        const heroNames = ["蒸汽博士", "果美美", "绿芽仔", "浪浪船长"];
+        const heroClasses = ["hero-steam", "hero-fruit", "hero-sprout", "hero-captain"];
+        let collectedHeroes = [];
+
+        function initGame() {
+            grid = Array(4).fill().map(() => Array(4).fill(0));
+            score = 0;
+            gameOver = false;
+            gameWon = false;
+            heroCount = 0;
+            collectedHeroes = [];
+            elapsedTime = 0;
+
+            updateScore();
+            updateHeroesList();
+            document.getElementById('game-over').style.display = 'none';
+
+            addRandomTile();
+            addRandomTile();
+            renderGrid();
+            startTimer();
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            if (gameOver || gameWon) return;
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            const min = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
+            const sec = (elapsedTime % 60).toString().padStart(2, '0');
+            document.querySelector('.time').textContent = `${min}:${sec}`;
+        }
+
+        function addRandomTile() {
+            const empty = [];
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    if (grid[r][c] === 0) empty.push({r, c});
+                }
+            }
+            if (empty.length === 0) return;
+            const {r, c} = empty[Math.floor(Math.random() * empty.length)];
+            grid[r][c] = Math.random() < 0.9 ? 2 : 4;
+        }
+
+        function renderGrid() {
+            const gridEl = document.getElementById('grid');
+            gridEl.querySelectorAll('.cell').forEach(cell => cell.remove());
+
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const tile = grid[r][c];
+
+                    if (tile !== 0) {
+                        if (typeof tile === 'object' && tile.value === 256) {
+                            // 只显示英雄图片，不显示名称
+                            cell.classList.add('tile-256', heroClasses[tile.heroIndex]);
+                        } else if (tile === 256) {
+                            const idx = heroCount % 4;
+                            grid[r][c] = { value: 256, name: heroNames[idx], heroIndex: idx };
+                            cell.classList.add('tile-256', heroClasses[idx]);
+
+                            if (!collectedHeroes.includes(idx)) {
+                                collectedHeroes.push(idx);
+                                heroCount++;
+                                updateHeroesList();
+                                if (heroCount === 4) winGame();
+                            }
+                        } else {
+                            cell.textContent = tile;
+                            cell.classList.add(`tile-${tile}`);
+                        }
+                    }
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        function updateScore() {
+            document.querySelector('.score').textContent = score;
+        }
+
+        function updateHeroesList() {
+            document.querySelector('.heroes-count').textContent = `${heroCount}/4`;
+            const list = document.getElementById('heroes-list');
+            list.innerHTML = '';
+            collectedHeroes.forEach(i => {
+                const badge = document.createElement('div');
+                badge.className = `hero-badge ${heroClasses[i]}`;
+                badge.textContent = heroNames[i];
+                list.appendChild(badge);
+            });
+        }
+
+        function move(direction) {
+            if (gameOver || gameWon) return;
+            let moved = false;
+            switch (direction) {
+                case 'left':  moved = moveLeft(); break;
+                case 'right': moved = moveRight(); break;
+                case 'up':    moved = moveUp(); break;
+                case 'down':  moved = moveDown(); break;
+            }
+            if (moved) {
+                addRandomTile();
+                renderGrid();
+                updateScore();
+                if (!hasMoves()) endGame(false);
+            }
+        }
+
+        // 移动函数（保持你原来的逻辑）
+        function moveLeft() {
+            let moved = false;
+            for (let r = 0; r < 4; r++) {
+                let row = grid[r].filter(v => v !== 0);
+                let newRow = [];
+                for (let i = 0; i < row.length; i++) {
+                    if (i < row.length - 1 && getValue(row[i]) === getValue(row[i+1]) && getValue(row[i]) !== 256) {
+                        const merged = getValue(row[i]) * 2;
+                        score += merged;
+                        if (merged === 256) {
+                            const idx = heroCount % 4;
+                            newRow.push({value: 256, name: heroNames[idx], heroIndex: idx});
+                            if (!collectedHeroes.includes(idx)) { collectedHeroes.push(idx); heroCount++; updateHeroesList(); if (heroCount === 4) winGame(); }
+                        } else newRow.push(merged);
+                        i++;
+                        moved = true;
+                    } else newRow.push(row[i]);
+                }
+                while (newRow.length < 4) newRow.push(0);
+                if (JSON.stringify(grid[r]) !== JSON.stringify(newRow)) moved = true;
+                grid[r] = newRow;
+            }
+            return moved;
+        }
+
+        function moveRight() {
+            let moved = false;
+            for (let r = 0; r < 4; r++) {
+                let row = grid[r].filter(v => v !== 0).reverse();
+                let newRow = [];
+                for (let i = 0; i < row.length; i++) {
+                    if (i < row.length - 1 && getValue(row[i]) === getValue(row[i+1]) && getValue(row[i]) !== 256) {
+                        const merged = getValue(row[i]) * 2;
+                        score += merged;
+                        if (merged === 256) {
+                            const idx = heroCount % 4;
+                            newRow.push({value: 256, name: heroNames[idx], heroIndex: idx});
+                            if (!collectedHeroes.includes(idx)) { collectedHeroes.push(idx); heroCount++; updateHeroesList(); if (heroCount === 4) winGame(); }
+                        } else newRow.push(merged);
+                        i++;
+                        moved = true;
+                    } else newRow.push(row[i]);
+                }
+                while (newRow.length < 4) newRow.push(0);
+                newRow.reverse();
+                if (JSON.stringify(grid[r]) !== JSON.stringify(newRow)) moved = true;
+                grid[r] = newRow;
+            }
+            return moved;
+        }
+
+        function moveUp() {
+            let moved = false;
+            for (let c = 0; c < 4; c++) {
+                let col = [];
+                for (let r = 0; r < 4; r++) if (grid[r][c] !== 0) col.push(grid[r][c]);
+                let newCol = [];
+                for (let i = 0; i < col.length; i++) {
+                    if (i < col.length - 1 && getValue(col[i]) === getValue(col[i+1]) && getValue(col[i]) !== 256) {
+                        const merged = getValue(col[i]) * 2;
+                        score += merged;
+                        if (merged === 256) {
+                            const idx = heroCount % 4;
+                            newCol.push({value: 256, name: heroNames[idx], heroIndex: idx});
+                            if (!collectedHeroes.includes(idx)) { collectedHeroes.push(idx); heroCount++; updateHeroesList(); if (heroCount === 4) winGame(); }
+                        } else newCol.push(merged);
+                        i++;
+                        moved = true;
+                    } else newCol.push(col[i]);
+                }
+                while (newCol.length < 4) newCol.push(0);
+                for (let r = 0; r < 4; r++) {
+                    if (grid[r][c] !== newCol[r]) moved = true;
+                    grid[r][c] = newCol[r];
+                }
+            }
+            return moved;
+        }
+
+        function moveDown() {
+            let moved = false;
+            for (let c = 0; c < 4; c++) {
+                let col = [];
+                for (let r = 3; r >= 0; r--) if (grid[r][c] !== 0) col.push(grid[r][c]);
+                let newCol = [];
+                for (let i = 0; i < col.length; i++) {
+                    if (i < col.length - 1 && getValue(col[i]) === getValue(col[i+1]) && getValue(col[i]) !== 256) {
+                        const merged = getValue(col[i]) * 2;
+                        score += merged;
+                        if (merged === 256) {
+                            const idx = heroCount % 4;
+                            newCol.push({value: 256, name: heroNames[idx], heroIndex: idx});
+                            if (!collectedHeroes.includes(idx)) { collectedHeroes.push(idx); heroCount++; updateHeroesList(); if (heroCount === 4) winGame(); }
+                        } else newCol.push(merged);
+                        i++;
+                        moved = true;
+                    } else newCol.push(col[i]);
+                }
+                while (newCol.length < 4) newCol.push(0);
+                newCol.reverse();
+                for (let r = 0; r < 4; r++) {
+                    if (grid[r][c] !== newCol[r]) moved = true;
+                    grid[r][c] = newCol[r];
+                }
+            }
+            return moved;
+        }
+
+        function getValue(tile) {
+            return typeof tile === 'object' && tile !== null ? tile.value : tile;
+        }
+
+        function hasMoves() {
+            for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (grid[r][c] === 0) return true;
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const val = getValue(grid[r][c]);
+                    if (val === 256) continue;
+                    if (c < 3 && val === getValue(grid[r][c+1])) return true;
+                    if (r < 3 && val === getValue(grid[r+1][c])) return true;
+                }
+            }
+            return false;
+        }
+
+        function winGame() {
+            gameWon = true;
+            clearInterval(timerInterval);
+            const timeBonus = Math.max(0, 300 - elapsedTime) * 10;
+            const finalScore = score + timeBonus;
+            document.getElementById('game-title').textContent = '恭喜获胜！';
+            document.getElementById('game-message').textContent = '你成功收集了所有四个英雄！';
+            document.getElementById('final-time').textContent = document.querySelector('.time').textContent;
+            document.getElementById('final-score').textContent = finalScore;
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        function endGame() {
+            gameOver = true;
+            clearInterval(timerInterval);
+            document.getElementById('game-title').textContent = '游戏结束';
+            document.getElementById('game-message').textContent = '没有可移动的步骤了！';
+            document.getElementById('final-time').textContent = document.querySelector('.time').textContent;
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        function handleKeyDown(e) {
+            if (gameOver || gameWon) return;
+            let dir = null;
+            switch (e.key) {
+                case 'ArrowLeft': case 'a': case 'A': dir = 'left'; break;
+                case 'ArrowRight': case 'd': case 'D': dir = 'right'; break;
+                case 'ArrowUp': case 'w': case 'W': dir = 'up'; break;
+                case 'ArrowDown': case 's': case 'S': dir = 'down'; break;
+                default: return;
+            }
+            e.preventDefault();
+            move(dir);
+        }
+
+        // 初始化
+        document.getElementById('new-game-btn').addEventListener('click', initGame);
+        document.getElementById('restart-btn').addEventListener('click', initGame);
+        document.getElementById('continue-btn').addEventListener('click', () => {
+            document.getElementById('game-over').style.display = 'none';
+        });
+
+        initGame();
+        window.addEventListener('keydown', handleKeyDown);
+
+        // 触摸支持
+        let touchStartX = 0, touchStartY = 0;
+        const gridEl = document.getElementById('grid');
+        gridEl.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; });
+        gridEl.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            const min = 40;
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > min) move(dx > 0 ? 'right' : 'left');
+            else if (Math.abs(dy) > min) move(dy > 0 ? 'down' : 'up');
+        });
+    </script>
+</body>
+</html>
