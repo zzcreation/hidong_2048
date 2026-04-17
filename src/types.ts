@@ -56,6 +56,8 @@ export interface MoveVisualState {
   lastMoveDirection: Direction | null;
 }
 
+export type RunOutcome = 'won' | 'lost';
+
 export interface LeaderboardEntry {
   id: string;
   nickname: string;
@@ -66,4 +68,5 @@ export interface LeaderboardEntry {
   highestTile: number;
   collectedHeroCount: number;
   createdAt: string;
+  outcome: RunOutcome;
 }

@@ -12,6 +12,7 @@ export function readLeaderboard(): LeaderboardEntry[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((item) => item && typeof item.finalScore === 'number')
+      .map((item) => ({ ...item, outcome: item.outcome ?? 'won' }))
       .sort((a, b) => b.finalScore - a.finalScore || a.elapsedSeconds - b.elapsedSeconds || a.moveCount - b.moveCount)
       .slice(0, LEADERBOARD_LIMIT);
   } catch {
