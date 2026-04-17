@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_HERO_TARGET, HERO_TARGET_OPTIONS, STORAGE_KEY, createDefaultHeroTargetOverrides, withHeroTargets } from './config';
 import { addRandomTile, calculateFinalScore, canMove, createHeroTile, createInitialBoard, formatTime, getHighestTile, isHeroUnlocked, moveBoard } from './game';
-import type { Board, Direction, GameSnapshot, MoveVisualState } from './types';
+import { createLeaderboardEntry, formatLeaderboardDate, formatLeaderboardMeta, readLeaderboard, saveLeaderboardEntry } from './leaderboard';
+import type { Board, Direction, GameSnapshot, LeaderboardEntry, MoveVisualState } from './types';
 
 const DIRECTIONS: Record<string, Direction> = {
   ArrowUp: 'up',
@@ -196,6 +197,71 @@ function RulesPanel({ onReset, showHint }: { onReset: () => void; showHint: bool
   );
 }
 
+function LeaderboardPanel({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
+  return (
+    <div className="card-panel leaderboard-panel">
+      <div className="leaderboard-header">
+        <div>
+          <div className="eyebrow small">LOCAL RANKING</div>
+          <h2>本地排行榜</h2>
+        </div>
+        <span>{leaderboard.length} / 10</span>
+      </div>
+      {leaderboard.length === 0 ? (
+        <div className="leaderboard-empty">还没有通关成绩，冲一把成为榜一吧。</div>
+      ) : (
+        <div className="leaderboard-list">
+          {leaderboard.map((entry, index) => (
+            <article key={entry.id} className="leaderboard-item">
+              <div className="leaderboard-rank">#{index + 1}</div>
+              <div className="leaderboard-main">
+                <div className="leaderboard-topline">
+                  <strong>{entry.nickname}</strong>
+                  <span>{entry.finalScore}</span>
+                </div>
+                <div className="leaderboard-subline">
+                  <span>原始分 {entry.score}</span>
+                  <span>{formatLeaderboardMeta(entry)}</span>
+                </div>
+              </div>
+              <time>{formatLeaderboardDate(entry.createdAt)}</time>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WinSavePanel({
+  nickname,
+  onNicknameChange,
+  onSave,
+  hasSaved,
+}: {
+  nickname: string;
+  onNicknameChange: (value: string) => void;
+  onSave: () => void;
+  hasSaved: boolean;
+}) {
+  return (
+    <div className="win-save-panel">
+      <label className="save-form-field">
+        <span>昵称</span>
+        <input
+          value={nickname}
+          maxLength={16}
+          placeholder="玩家"
+          onChange={(event) => onNicknameChange(event.target.value)}
+        />
+      </label>
+      <button className="secondary-btn save-btn" onClick={onSave} disabled={hasSaved}>
+        {hasSaved ? '本局已保存' : '保存到本地榜'}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const saved = typeof window !== 'undefined' ? readSnapshot() : null;
   const initial = createFreshState();
@@ -215,12 +281,18 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => (typeof window !== 'undefined' ? readLeaderboard() : []));
+  const [nickname, setNickname] = useState('');
+  const [hasSavedCurrentWin, setHasSavedCurrentWin] = useState(false);
 
   const audioRef = useRef<AudioContext | null>(null);
   const clearHighlightRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const heroes = useMemo(() => withHeroTargets(heroTargetOverrides), [heroTargetOverrides]);
+  const highestTile = useMemo(() => getHighestTile(board), [board]);
+  const finalScore = useMemo(() => calculateFinalScore(score, elapsedSeconds, collectedHeroIds.length), [score, elapsedSeconds, collectedHeroIds.length]);
+  const configChanged = score > 0 || moveCount > 0 || collectedHeroIds.length > 0;
 
   const playBeep = useCallback((frequency: number, duration = 0.08, type: OscillatorType = 'sine') => {
     try {
@@ -283,13 +355,11 @@ export default function App() {
     setGameWon(false);
     setGameOver(false);
     setLastCollectedHeroId(null);
+    setHasSavedCurrentWin(false);
+    setNickname('');
     setVisualState({ boardPulse: Date.now(), lastMoveDirection: null });
     playBeep(420, 0.12, 'triangle');
   }, [playBeep]);
-
-  const highestTile = useMemo(() => getHighestTile(board), [board]);
-  const finalScore = useMemo(() => calculateFinalScore(score, elapsedSeconds, collectedHeroIds.length), [score, elapsedSeconds, collectedHeroIds.length]);
-  const configChanged = score > 0 || moveCount > 0 || collectedHeroIds.length > 0;
 
   const move = useCallback((direction: Direction) => {
     if (gameWon || gameOver) return;
@@ -340,6 +410,7 @@ export default function App() {
     }
 
     if (won) {
+      setHasSavedCurrentWin(false);
       window.setTimeout(() => playBeep(880, 0.18, 'triangle'), 60);
       window.setTimeout(() => playBeep(1174, 0.24, 'triangle'), 180);
     }
@@ -391,6 +462,22 @@ export default function App() {
     touchStartRef.current = null;
   };
 
+  const handleSaveScore = () => {
+    if (!gameWon || hasSavedCurrentWin) return;
+    const entry = createLeaderboardEntry({
+      nickname: nickname.trim() || '玩家',
+      score,
+      finalScore,
+      moveCount,
+      elapsedSeconds,
+      highestTile,
+      collectedHeroCount: collectedHeroIds.length,
+    });
+    const next = saveLeaderboardEntry(entry);
+    setLeaderboard(next);
+    setHasSavedCurrentWin(true);
+  };
+
   return (
     <div className={`page-shell ${isMobile ? 'mobile-mode' : 'desktop-mode'}`}>
       <div className="page-glow glow-a" />
@@ -439,6 +526,9 @@ export default function App() {
                         <h2>{gameWon ? '四位英雄已集齐！' : '棋盘堵住了'}</h2>
                         <p>{gameWon ? '恭喜通关，嗨咚英雄全员登场。' : '这一局没有更多可移动的空间了，随时再来一把。'}</p>
                         <div className="result-metrics"><span>分数 {score}</span><span>步数 {moveCount}</span><span>用时 {formatTime(elapsedSeconds)}</span></div>
+                        {gameWon && (
+                          <WinSavePanel nickname={nickname} onNicknameChange={setNickname} onSave={handleSaveScore} hasSaved={hasSavedCurrentWin} />
+                        )}
                         <button className="primary-btn" onClick={resetGame}>再来一局</button>
                       </div>
                     </div>
@@ -455,6 +545,7 @@ export default function App() {
                   <div className="score-card"><span>用时</span><strong>{formatTime(elapsedSeconds)}</strong></div>
                   <div className="score-card accent"><span>通关结算预估</span><strong>{finalScore}</strong></div>
                 </div>
+                <LeaderboardPanel leaderboard={leaderboard} />
                 <section className="hero-intro card-panel desktop-bottom-info">
                   <div>
                     <h2>游戏介绍</h2>
@@ -539,6 +630,9 @@ export default function App() {
                     <h2>{gameWon ? '四位英雄已集齐！' : '棋盘堵住了'}</h2>
                     <p>{gameWon ? '恭喜通关，嗨咚英雄全员登场。' : '这一局没有更多可移动的空间了。'}</p>
                     <div className="result-metrics"><span>分数 {score}</span><span>步数 {moveCount}</span><span>用时 {formatTime(elapsedSeconds)}</span></div>
+                    {gameWon && (
+                      <WinSavePanel nickname={nickname} onNicknameChange={setNickname} onSave={handleSaveScore} hasSaved={hasSavedCurrentWin} />
+                    )}
                     <button className="primary-btn" onClick={resetGame}>再来一局</button>
                   </div>
                 </div>
@@ -563,6 +657,9 @@ export default function App() {
                       <div className="score-card compact"><span>最佳分数</span><strong>{bestScore}</strong></div>
                       <div className="score-card compact"><span>预估结算</span><strong>{finalScore}</strong></div>
                     </div>
+                  </div>
+                  <div className="drawer-section card-subpanel leaderboard-drawer-section">
+                    <LeaderboardPanel leaderboard={leaderboard} />
                   </div>
                   <div className="drawer-section card-subpanel">
                     <HeroCollectionPanel heroes={heroes} collectedHeroIds={collectedHeroIds} highestTile={highestTile} lastCollectedHeroId={lastCollectedHeroId} />

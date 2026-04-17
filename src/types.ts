@@ -55,3 +55,15 @@ export interface MoveVisualState {
   boardPulse: number;
   lastMoveDirection: Direction | null;
 }
+
+export interface LeaderboardEntry {
+  id: string;
+  nickname: string;
+  score: number;
+  finalScore: number;
+  moveCount: number;
+  elapsedSeconds: number;
+  highestTile: number;
+  collectedHeroCount: number;
+  createdAt: string;
+}
